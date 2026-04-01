@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Review Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.json" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="./cssandjs/chart.js"></script>
+
+   <style>
+* {
+  box-sizing: border-box;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 10px;
+  background: #f4f7fa;
+  color: #333;
+}
+
+@keyframes bouncePulse {
+  0% { transform: scale(1.5); }
+  50% { transform: scale(1.58); }
+  100% { transform: scale(1.5); }
+}
+
+.bounce-active {
+  animation: bouncePulse 0.2s ease;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 1px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.controls label,
+.controls input,
+.controls button {
+  padding: 5px 10px;
+  font-size: 1em;
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 600px;
+  margin: 20px auto;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+canvas {
+  width: 120px !important;
+  height: 120px !important;
+}
+
+.stats-text {
+  font-size: 14px;
+  color: #333;
+  white-space: pre-line;
+}
+
+#notePanel {
+  display: none;
+  margin-top: 10px;
+}
+
+textarea {
+  width: 100%;
+  margin: 10px 0;
+  padding: 10px;
+  font-size: 1em;
+  resize: vertical;
+}
+
+button {
+  font-size: 1em;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+button:hover {
+  background-color: #2980b9;
+}
+
+.resizer {
+  resize: both;
+  overflow: auto;
+  width: 100%;
+  height: 700px;
+  border: 1px solid #bbb;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.resized {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+#questionNumbers {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+#progress-bar {
+  width: 100%;
+  height: 20px;
+  margin-top: 10px;
+  display: none;
+}
+
+#timer {
+  text-align: center;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+/* Top Navigation - Responsive Two-Line Layout */
+.nav-tob {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  background: #e0e0e0;
+  padding: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+/* Bottom Navigation */
+.nav-tabs {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  background: #e0e0e0;
+  padding: 8px;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.nav-tabs button {
+  flex: 1;
+  margin: 1px;
+  border: none;
+  background: none;
+  font-size: 1.2em;
+}
+
+/* Responsive Layout */
+@media screen and (max-width: 600px) {
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  iframe {
+    height: 400px;
+  }
+
+  .container {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <h2>Review Dashboard</h2>
+
+  <div  class="nav-tob" >
+    <label for="numQuestions">Number of Questions:</label>
+    <input type="number" id="numQuestions" value="100" min="1" max="5000" />
+<button onclick="generateQuestions()">🎲Generate</button>
+<button onclick="saveProgressToFile()">💾Save</button>
+<button onclick="LoadProgressfromFile()">📂Load</button>
+<button onclick="startTimer(generatedQuestions.length)">⏱timer</button>
+<button onclick="markAnswer(true)">✅Correct</button>
+<button onclick="markAnswer(false)">❌Wrong</button>
+<button onclick="previousQuestion()">⬅️Previous</button>
+<button onclick="nextQuestion()">➡️Next</button>
+    <label for="gotoQuestionNumbval">Go to #:</label>
+    <input type="number" id="gotoQuestionNumbval" value="1" min="1" max="5000" />
+    <button onclick="gotoQuestion()">Go</button>
+    <button onclick="toggleNotePanel()">📝 Note</button>
+  </div>
+
+
+
+  <div id="notePanel">
+    <textarea id="noteArea" rows="6" placeholder="Type your notes here..."></textarea>
+  </div>
+<a id="timer"></a>
+  <div id="questionNumbers">   </div>
+
+ 
+    <iframe id="questionFrame" class="resizer"></iframe>
+
+
+  <textarea id="answerBox" rows="2" placeholder="Answer summary..."></textarea>
+    <div class="container">
+    <div class="stats-text" id="statsEl">  </div>
+    <canvas id="statsChart"></canvas>
+	  <a id="timer"></a> 
+  </div>
+  <textarea id="answerBox2" rows="2" placeholder="Additional notes..."></textarea>
+
+  <div id="timer"></div>
+  <progress id="progress-bar" value="0" max="100"></progress>
+  <div class="nav-tabs">
+   
+   <button onclick="
+  const val = generatedQuestions[questionIndex];
+  let folder = 0;
+  if (val <= 525584099) folder = 1;
+  else if (val <= 525584599) folder = 2;
+  else if (val <= 525585099) folder = 3;
+  else if (val <= 525585599) folder = 4;
+  else if (val <= 525586099) folder = 5;
+  else if (val <= 525586599) folder = 6;
+  else if (val <= 525587099) folder = 7;
+  else if (val <= 525587599) folder = 8;
+  else if (val <= 525588099) folder = 9;
+  else if (val <= 525588599) folder = 10;
+  else folder = 11;
+  const path = `${folder}/${val}.html#question_description`;
+  document.getElementById('questionFrame').src = path;
+">❓</button>
+
+<button onclick="
+  const val = generatedQuestions[questionIndex];
+  let folder = 0;
+  if (val <= 525584099) folder = 1;
+  else if (val <= 525584599) folder = 2;
+  else if (val <= 525585099) folder = 3;
+  else if (val <= 525585599) folder = 4;
+  else if (val <= 525586099) folder = 5;
+  else if (val <= 525586599) folder = 6;
+  else if (val <= 525587099) folder = 7;
+  else if (val <= 525587599) folder = 8;
+  else if (val <= 525588099) folder = 9;
+  else if (val <= 525588599) folder = 10;
+  else folder = 11;
+  const path = `${folder}/${val}.html#answer_detail`;
+  document.getElementById('questionFrame').src = path;
+">💬</button>
+    <button onclick="toggleNotePanel()">📝</button>
+        <button onclick="loadPreviousQuestions()">📂LoadOldQ</button>
+   <button onclick="saveMergedQuestions()">💾 SaveAllQ</button>
+	<button onclick="previousQuestion()">⬅️Previous</button>
+<button onclick="nextQuestion()">➡️Next</button>
+  </div>
+  <script>
+    let questionIndex = 0;
+    let generatedQuestions = [];
+    let correctAnswers = 0;
+    let wrongAnswers = 0;
+
+    const timerEl = document.getElementById("timer");
+    const statsEl = document.getElementById("stats");
+
+
+
+      function generateQuestions() {
+    const num = Math.min(parseInt(document.getElementById('numQuestions').value), 5000);
+    const min = 525583622, max = 525588621;
+    const used = new Set(previousQuestions);
+    generatedQuestions = [];
+
+    while (generatedQuestions.length < num) {
+      const rand = Math.floor(Math.random() * (max - min + 1)) + min;
+      if (!used.has(rand)) {
+        used.add(rand);
+        generatedQuestions.push(rand);
+      }
+    }
+
+    questionIndex = 0;
+    displayQuestion();
+  }
+
+function toggleNotePanel() {
+  const panel = document.getElementById("notePanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+    function displayQuestion() {
+      if (questionIndex < 0 || questionIndex >= generatedQuestions.length) return;
+      const val = generatedQuestions[questionIndex];
+	    let folder = 0;
+       if (val >= 525583622 && val <= 525584099) folder = 1;
+  else if (val <= 525584599) folder = 2;
+  else if (val <= 525585099) folder = 3;
+  else if (val <= 525585599) folder = 4;
+  else if (val <= 525586099) folder = 5;
+  else if (val <= 525586599) folder = 6;
+  else if (val <= 525587099) folder = 7;
+  else if (val <= 525587599) folder = 8;
+  else if (val <= 525588099) folder = 9;
+  else if (val <= 525588599) folder = 10;
+  else if (val <= 525588621) folder = 11;
+
+       const path = `${folder}/${val}.html`;
+
+      document.getElementById('questionNumbers').innerHTML = 
+        `Current File: <a href="${path}" target="_blank">${val}</a> (Question ${questionIndex + 1} of ${generatedQuestions.length})`;
+
+      document.getElementById('questionFrame').src = path;
+    }
+
+    function markAnswer(correct) {
+      correct ? correctAnswers++ : wrongAnswers++;
+      const summary = correct ? 'Correct    ' : 'Wrong    ';
+      document.getElementById('answerBox').value += `Q${questionIndex + 1}: ${summary}`;
+      displayStats();
+    }
+
+function displayStats() {
+  const total = correctAnswers + wrongAnswers;
+  const correctPct = Math.round((correctAnswers / total) * 100);
+  const wrongPct = Math.round((wrongAnswers / total) * 100);
+
+  // Show basic stats as text
+  document.getElementById("statsEl").textContent = 
+    `Answered: ${total} | ✅ ${correctPct}% | ❌ ${wrongPct}%`;
+
+  const ctx = document.getElementById("statsChart").getContext("2d");
+
+  // Destroy old chart if it exists
+  if (window.myChart) {
+    window.myChart.destroy();
+  }
+
+  // Create beautiful animated donut chart
+  window.myChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Correct', 'Wrong'],
+      datasets: [{
+        data: [correctPct, wrongPct],
+        backgroundColor: ['#4CAF50', '#F44336'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      animation: {
+        animateRotate: true,
+        duration: 1000
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `${context.label}: ${context.parsed}%`;
+            }
+          }
+        }
+      },
+      cutout: '80%',
+    }
+  });
+}
+
+
+
+    function nextQuestion() {
+      if (questionIndex < generatedQuestions.length - 1) {
+        questionIndex++;
+        displayQuestion();
+      }
+    }
+
+    function previousQuestion() {
+      if (questionIndex > 0) {
+        questionIndex--;
+        displayQuestion();
+      }
+    }
+
+    function gotoQuestion() {
+      const val = parseInt(document.getElementById('gotoQuestionNumbval').value);
+      if (val >= 1 && val <= generatedQuestions.length) {
+        questionIndex = val - 1;
+        displayQuestion();
+      }
+    }
+
+    function saveProgressToFile() {
+      const data = {
+        generatedQuestions,
+        correctAnswers,
+        wrongAnswers,
+        questionIndex,
+        answerBox: document.getElementById('answerBox').value,
+        answerBox2: document.getElementById('answerBox2').value
+      };
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'review-progress.json';
+      link.click();
+    }
+
+
+    function LoadProgressfromFile() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = function () {
+        const reader = new FileReader();
+        reader.onload = function () {
+          const data = JSON.parse(reader.result);
+          generatedQuestions = data.generatedQuestions || [];
+          correctAnswers = data.correctAnswers || 0;
+          wrongAnswers = data.wrongAnswers || 0;
+          questionIndex = data.questionIndex || 0;
+          document.getElementById('answerBox').value = data.answerBox || '';
+          document.getElementById('answerBox2').value = data.answerBox2 || '';
+          displayQuestion();
+          displayStats();
+        };
+        reader.readAsText(this.files[0]);
+      };
+      input.click();
+    }
+
+    function startTimer(numQuestions) {
+      let timeLeft = numQuestions * 60;
+      timerEl.textContent = '';
+      const interval = setInterval(() => {
+        timeLeft--;
+        const min = Math.floor(timeLeft / 60);
+        const sec = timeLeft % 60;
+        timerEl.textContent = `⏱️ ${min}m ${sec}s`;
+
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          alert("Time's up!");
+        }
+      }, 1000);
+    }
+    
+	async function autoLoadProgress() {
+  try {
+    const response = await fetch('./review-progress.json');
+    if (!response.ok) throw new Error('File not found');
+
+    const data = await response.json();
+    generatedQuestions = data.generatedQuestions || [];
+    correctAnswers = data.correctAnswers || 0;
+    wrongAnswers = data.wrongAnswers || 0;
+    questionIndex = data.questionIndex || 0;
+    document.getElementById('answerBox').value = data.answerBox || '';
+    document.getElementById('answerBox2').value = data.answerBox2 || '';
+
+    displayQuestion();
+    displayStats();
+  } catch (error) {
+    console.warn('📂 Auto-load failed:', error.message);
+	generateQuestions();
+  }
+}
+
+    window.onload = () => {
+      // generateQuestions();
+	  autoLoadProgress(); // Load saved data automatically
+    };
+	
+	document.querySelectorAll("button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    btn.classList.add("bounce-active");
+    setTimeout(() => btn.classList.remove("bounce-active"), 400);
+  });
+});
+
+
+
+
+
+  let previousQuestions = [];
+
+  function loadPreviousQuestions() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = function () {
+      const reader = new FileReader();
+      reader.onload = function () {
+        const data = JSON.parse(reader.result);
+        previousQuestions = data.generatedQuestions || [];
+        alert(`✅ تم تحميل ${previousQuestions.length} سؤال سابق`);
+      };
+      reader.readAsText(this.files[0]);
+    };
+    input.click();
+  }
+
+  function saveMergedQuestions() {
+    const merged = Array.from(new Set([...previousQuestions, ...generatedQuestions]));
+    const blob = new Blob([JSON.stringify({ generatedQuestions: merged }, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'all-questions.json';
+    link.click();
+  }
+
+
+
+  </script>
+
+</body>
+</html>
